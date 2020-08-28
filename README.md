@@ -31,4 +31,4 @@ This is on a small dataset with no data augmentation with a shared training/vali
 
 The dataset is taken from <https://www.kaggle.com/andriitrelin/cells-raman-spectra/activity>, licensed under CC-BY-NC 4.0.
 
-All code is under the MIT license.
+All code is (c) John Kilpatrick under the MIT license.
