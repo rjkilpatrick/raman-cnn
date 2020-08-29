@@ -12,9 +12,9 @@ At the moment, it doesn't even save the model trained, but will _hoefully_ be im
 
 ## Technologies
 
-- Python, created in 3.7.4, but most
+- Python, created in 3.7.4, >= 3.4 should work
 - Git, using [Gitmoji](https://gitmoji.carloscuesta.me/) style commits
-- TensorFlow 2
+- PyTorch
 
 ## Project staus
 
