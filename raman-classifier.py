@@ -1,34 +1,23 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
+# -*- coding: utf-8 -*-
 # %%
 import numpy as np
-
+import torch
 from pathlib import Path
-
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
-
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import to_categorical
-
 import matplotlib.pyplot as plt
 
 
 # %%
 # Load and flatten
-data_path = Path(("/home/jovyan/work/CNN Test with Raman/Dataset"
-                  "/cells-raman-spectra/dataset_i"))
+data_path = Path("./Dataset/cells-raman-spectra/dataset_i")
 datasets = data_path.rglob("*.csv")
 
-x_data = [] # Input data, 100cm^-1, 101cm^-1, ..., 2080cm^-1
-y_data = [] # Output label,
+x_data = []  # Input data, 100cm⁻¹, 101cm⁻¹, ..., 2080cm⁻¹
+y_data = []  # Output label,
 
 for item in datasets:
-    data = np.loadtxt(item, comments='#', delimiter=',') # size (54, 2090)
+    data = np.loadtxt(item, comments='#', delimiter=',')  # size (54, 2090)
     x_data.append(data)
-    
+
     for row in data:
         y_data.append(item.parent.stem.split("-")[0])
 x_data = np.concatenate(x_data)
@@ -36,14 +25,14 @@ x_data = np.concatenate(x_data)
 x_data_raw = np.copy(x_data)
 y_data_raw = np.copy(y_data)
 
-
-# %%
 print(x_data_raw.shape)
 print(y_data_raw)
 
 
 # %%
-# Categories to numbers
+# Categories to numbers (NOT one encodiing as CrossEntropyLoss doesn't work with it)
+from sklearn.preprocessing import LabelEncoder
+
 le = LabelEncoder()
 le.fit(y_data)
 
@@ -53,20 +42,23 @@ num_classes = len(classes)
 
 y_data = le.transform(y_data_raw)
 
-print(le.transform(["A", "DMEM", "G", "HF", "MEL", "ZAM"]))
+print(le.transform(list(set(y_data))))
 
 
 # %%
-# Numbers to one-hot
-y_data = to_categorical(y_data, num_classes)
-print(y_data[:5])
-
-
-# %%
-# Split into test and training data
+# Randomly sort, then split into test and training data
+from sklearn.model_selection import train_test_split
 x_train, x_test, y_train, y_test = train_test_split(x_data,
                                                     y_data,
+                                                    #y_data_ones,
                                                     test_size=.2)
+x_train = torch.from_numpy(x_train)
+x_test = torch.from_numpy(x_test)
+y_train = torch.from_numpy(y_train)
+y_test = torch.from_numpy(y_test)
+
+# %%
+plt.plot(x_train[0])
 
 
 # %%
@@ -74,32 +66,52 @@ x_train, x_test, y_train, y_test = train_test_split(x_data,
 print("First 5 traning labels as one-hot encoded vectors:\n",
      y_train[:5])
 # Decode
-print(le.inverse_transform([np.argmax(train) for train in y_train[:5]]))
+print(le.inverse_transform(y_train[:5]))
 
 
 # %%
 input_shape = 2090
 
-model = Sequential()
-model.add(Dense(units=256, activation='sigmoid', input_shape=(input_shape,)))
-model.add(Dense(units=64, activation='sigmoid'))
-model.add(Dense(units=32, activation='sigmoid'))
-model.add(Dense(units=num_classes, activation='softmax'))
-model.summary()
+
+class TwoLayerNet(torch.nn.Module):
+    def __init__(self, D_in, H, D_out):
+        super().__init__()
+        self.linear1 = torch.nn.Linear(D_in, H)
+        self.linear2 = torch.nn.Linear(H, D_out)
+    
+    def forward(self, x):
+        h_relu = self.linear1(x)
+        y_pred = self.linear2(h_relu)
+        return y_pred
+
+model = TwoLayerNet(2090, 256, num_classes)
 
 
 # %%
-model.compile(optimizer='adam',
-             loss='categorical_crossentropy',
-             metrics=['accuracy']) # Remember this depends on the loss and optimizer
-history = model.fit(x_train,
-                    y_train,
-                    batch_size=128,
-                    epochs=50,
-#                     verbose=False,
-                    validation_split=0.1) # 10% Validation
-loss, accuracy = model.evaluate(x_test, y_test, verbose=False)
+loss_func = torch.nn.CrossEntropyLoss()
+learning_rate = 1e-4
+optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+
+# %%
+# Train model
+for t in range(200):
+    # Forwards pass
+    y_pred = model(x_train.float())
+    
+    # Calculate loss
+    loss = loss_func(y_pred, y_train)
+    
+    optimiser.zero_grad()
+    
+    # Backward pass
+    loss.backward()
+    
+    optimiser.step()
+
+# %%
+# Save model
+torch.save(model, 'model.pth')
 
 # %%
 plt.plot(history.history['acc'])
@@ -134,9 +146,9 @@ le.inverse_transform([np.argmax(predictions[0])])[0]
 
 # %%
 font_dict = {'color': 'black'}
-for i in range(16): # Only do first 16
-#     ax = plt.subplot(4, 4, i+1)
-#     ax.axis('Off')
+for i in range(16):  # Only do first 16
+    #     ax = plt.subplot(4, 4, i+1)
+    #     ax.axis('Off')
     plt.plot(np.linspace(100, 4278, 2090), x_test[i + page])
     prediction = le.inverse_transform([np.argmax(predictions[i + page])])[0]
     true_value = le.inverse_transform([np.argmax(y_test[i + page])])[0]
@@ -149,6 +161,3 @@ page += 16
 
 
 # %%
-
-
-
