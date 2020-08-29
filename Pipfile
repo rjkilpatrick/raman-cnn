@@ -8,6 +8,8 @@ verify_ssl = true
 [packages]
 torch = "*"
 scikit-learn = "*"
+jupyter = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.8"
